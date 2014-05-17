@@ -1,0 +1,459 @@
+<?php
+
+/**
+ * @file
+ * A custom module implementing tweaks for customize functionalities.
+ */
+define('WB_ROTTENTOMATOES_API_BASE_URL', 'http://api.rottentomatoes.com/api/public/v1.0/');
+
+
+module_load_include('php', 'wb_rottentomatoes', 'wb_rottentomatoes.lib');
+
+/**
+ * Implements hook_init()
+ */
+function wb_rottentomatoes_init() {
+  $rottentomatoes_path = drupal_get_path('module', 'wb_rottentomatoes');
+  drupal_add_css($rottentomatoes_path . '/css/wb_rottentomatoes.css', 'module');
+}
+
+/**
+ * Implements hook_theme()
+ */
+function wb_rottentomatoes_theme($existing, $type, $theme, $path) {
+  return array(
+    'movie_info_theme' => array(
+      'template' => 'wb_rottentomatoes',
+      'variables' => array('movie' => NULL, 'movie_casting' => NULL),
+      'path' => drupal_get_path('module', 'wb_rottentomatoes') . '/templates',
+    ),
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function wb_rottentomatoes_menu() {
+  $items['admin/config/services/rotten-tomatoes-api'] = array(
+    'title' => 'Rotten Tomatoes configuration',
+    'description' => 'Configure the connection to Rotten Tomatoes.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('wb_rottentomatoes_configure'),
+    'access arguments' => array('administer rotten tomatoes'),
+  );
+  $items['admin/create/movies'] = array(
+    'title' => 'Find and Create Movies',
+    'description' => 'Add movie if from rotten tomatoes',
+    'page callback' => 'wb_rottentomatoes_find_add_movies',
+    'access arguments' => array('create rotten tomatoes movies'),
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function wb_rottentomatoes_permission() {
+  $perms['adminsiter rotten tomatoes'] = array(
+    'title' => t('Administer Rotten Tomatoes configuration'),
+    'description' => t('Set up the Rotten Tomatoes API module.'),
+  );
+  $perms['create rotten tomatoes movies'] = array(
+    'title' => t('Find and Create Movies Using Rottentomatoes API'),
+    'description' => t('Setup rotten tomato movies'),
+  );
+
+  return $perms;
+}
+
+/**
+ * Helper function to return page contents for follow new people page.
+ *
+ */
+function wb_rottentomatoes_find_add_movies() {
+  $output = array();
+
+// get all twitter accounts for the current logged in user;
+  $output['rottentomatoes_find_movies'][] = drupal_get_form('rottentomatoes_find_movies');
+  $output['rottentomatoes_add_movies'][] = drupal_get_form('rottentomatoes_add_movies');
+  return drupal_render($output);
+}
+
+/**
+ * Form callback; Setup the Rotten Tomatoes module.
+ */
+function rottentomatoes_find_movies() {
+  $form['search_movies'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Search Movies'),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+  );
+  $form['search_movies']['find_movies_by'] = array(
+    '#type' => 'select',
+    '#title' => t('Search Movie By'),
+    '#options' => array(
+      "by_title" => t('Search Movie By Title'),
+      "by_rotten_id" => t('Search Movie By Rotten ID'),
+      "by_imdb_id" => t('Search Movie By IMDB ID'),
+    ),
+    '#default_value' => variable_get('find_movies_by'),
+  );
+  $form['search_movies']['movie_title'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Enter Movie Title'),
+    '#description' => t("Enter Movie Title"),
+    '#states' => array(
+      'visible' => array(
+        'select[name="find_movies_by"]' => array('value' => 'by_title'),
+      ),
+    ),
+  );
+  $form['search_movies']['movie_rotten_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Movie Rotten Id'),
+    '#description' => t("Enter Rotten ID of Movie"),
+    '#states' => array(
+      'visible' => array(
+        'select[name="find_movies_by"]' => array('value' => 'by_rotten_id'),
+      ),
+    ),
+  );
+  $form['search_movies']['movie_imdb_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Movie IMDB Id'),
+    '#description' => t("Enter IMDB ID of Movie"),
+    '#states' => array(
+      'visible' => array(
+        'select[name="find_movies_by"]' => array('value' => 'by_imdb_id'),
+      ),
+    ),
+  );
+  $form['search_movies']['results_count'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Number of movies in one page'),
+    '#description' => t("Enter number of movies you want per page"),
+    '#states' => array(
+      'visible' => array(
+        'select[name="find_movies_by"]' => array('value' => 'by_title'),
+      ),
+    ),
+  );
+  $form['search_movies']['page_number'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Page Number'),
+    '#description' => t('Enter page number you want results of'),
+    '#states' => array(
+      'visible' => array(
+        'select[name="find_movies_by"]' => array('value' => 'by_title'),
+      ),
+    ),
+  );
+  $form['search_movies']['search_submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Find',
+    '#name' => 'search_submit',
+    '#submit' => array('wb_rottentomatoes_search_movies_submit'),
+  );
+  $form['find_similar_movies'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Find Similar Movies By Rotten ID'),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+  );
+  $form['find_similar_movies']['movie_rotten_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Movie Rotten Id'),
+    '#description' => t("Enter Rotten ID of Movie to Find Similar Movies"),
+  );
+  $form['find_similar_movies']['similar_submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Find',
+    '#name' => 'similar_submit',
+    '#submit' => array('wb_rottentomatoes_find_similar_movies_submit'),
+  );
+  $form['upcoming_movies'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Upcoming Movies'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+  $form['upcoming_movies']['upcoming_movie_country'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Enter country'),
+    '#description' => t("Enter Country you want to get upcoming movies"),
+  );
+  $form['upcoming_movies']['upcoming_movie_results_count'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Number of movies in one page'),
+    '#description' => t("Enter number of movies you want per page"),
+  );
+  $form['upcoming_movies']['upcoming_movie_page_number'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Page Number'),
+    '#description' => t('Enter page number you want results of'),
+  );
+  $form['upcoming_movies']['upcoming_submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Find',
+    '#name' => 'upcoming_submit',
+    '#submit' => array('wb_rottentomatoes_find_upcoming_movies_submit'),
+  );
+  $form['top_earning_movies'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Top Earning Movies'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+  $form['top_earning_movies']['top_earning_movie_country'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Enter country'),
+    '#description' => t("Enter Country you want to get upcoming movies"),
+  );
+  $form['top_earning_movies']['top_earning_submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Find',
+    '#name' => 'top_earning_submit',
+    '#submit' => array('wb_rottentomatoes_find_top_earning_movies_submit'),
+  );
+
+  return $form;
+}
+
+/**
+ *  Submit Handler for wb_rottentomatoes_find_add_movies()
+ *  Call Rotten Tomatoe API's.
+ */
+function wb_rottentomatoes_search_movies_submit(&$form, &$form_state) {
+  dpm($form_state);
+  dpm("search");
+  $params = array();
+  if ($form_state['values']['find_movies_by'] == "by_title") {
+    $params['type'] = "by_title";
+    $params['movie_title'] = $form_state['values']['movie_title'];
+    $params['page_limit'] = $form_state['values']['results_count'];
+    $params['page'] = $form_state['values']['page_number'];
+    $_SESSION['search_movie_results'] = rottentomatoes_connect($params);
+    //dpm(rottentomatoes_connect($params));
+  }
+  elseif ($form_state['values']['find_movies_by'] == "by_rotten_id") {
+    $params['type'] = "by_rotten_id";
+    $params['movie_rotten_id'] = $form_state['values']['movie_rotten_id'];
+    $_SESSION['search_movie_results'] = rottentomatoes_connect($params);
+    //dpm(rottentomatoes_connect($params));
+  }
+  else {
+    $params['type'] = "by_imdb_id";
+    $params['movie_imdb_id'] = $form_state['values']['movie_imdb_id'];
+    $_SESSION['search_movie_results'] = rottentomatoes_connect($params);
+    //dpm(rottentomatoes_connect($params));
+  }
+  drupal_set_message("Form Submitted Successfully", "status");
+}
+
+/**
+ *  Submit Handler for wb_rottentomatoes_find_add_movies()
+ *  Call Rotten Tomatoe API's.
+ */
+function wb_rottentomatoes_find_similar_movies_submit(&$form, &$form_state) {
+  dpm("similar");
+
+  dpm($form_state);
+  $params = array();
+  $params['type'] = "similar_movies_by_rotten_id";
+  $params['movie_rotten_id'] = $form_state['values']['movie_rotten_id'];
+  $_SESSION['search_movie_results'] = rottentomatoes_connect($params);
+  //dpm(rottentomatoes_connect($params));
+  drupal_set_message("Form Submitted Successfully", "status");
+}
+
+/**
+ *  Submit Handler for wb_rottentomatoes_find_add_movies()
+ *  Call Rotten Tomatoe API's.
+ */
+function wb_rottentomatoes_find_upcoming_movies_submit(&$form, &$form_state) {
+  dpm("up coming");
+  dpm($form_state);
+  $params = array();
+  $params['type'] = "upcoming_movies";
+  $params['country'] = $form_state['values']['upcoming_movie_country'];
+  $params['page_limit'] = $form_state['values']['upcoming_movie_results_count'];
+  $params['page'] = $form_state['values']['upcoming_movie_page_number'];
+  $_SESSION['search_movie_results'] = rottentomatoes_connect($params);
+  //dpm(rottentomatoes_connect($params));
+  drupal_set_message("Form Submitted Successfully", "status");
+}
+
+/**
+ *  Submit Handler for wb_rottentomatoes_find_add_movies()
+ *  Call Rotten Tomatoe API's.
+ */
+function wb_rottentomatoes_find_top_earning_movies_submit(&$form, &$form_state) {
+  dpm("top earning");
+  dpm($form_state);
+  $params = array();
+  $params['type'] = "top_earning_movies";
+  $params['country'] = $form_state['values']['top_earning_movie_country'];
+  $search_results = rottentomatoes_connect($params);
+  $_SESSION['search_movie_results'] = $search_results['movies'];
+  //dpm(rottentomatoes_connect($params));
+  drupal_set_message("Form Submitted Successfully", "status");
+}
+
+/**
+ * Form callback; Setup the Rotten Tomatoes module.
+ */
+function wb_rottentomatoes_configure() {
+  $form['wb_rotten_tomatoes_api_key'] = array(
+    '#type' => 'textfield',
+    '#title' => t('API Key'),
+    '#default_value' => variable_get('wb_rotten_tomatoes_api_key', ''),
+    '#description' => t('Enter your Rotten Tomatoes API key.  If you do not have one, they can be obtained from <a href="!url">The Rotten Tomatoes site</a>.', array('!url' => 'http://developer.rottentomatoes.com/member/register')),
+  );
+  $form['wb_rotten_tomatoes_api_url'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Rotten Tomatoes API Url'),
+    '#default_value' => variable_get('wb_rotten_tomatoes_api_url', WB_ROTTENTOMATOES_API_BASE_URL),
+  );
+  $form['rottentomatoes_format'] = array(
+    '#type' => 'select',
+    '#title' => t('Select API return format'),
+    '#options' => array(
+      ".json" => t('JSON'),
+      ".xml" => t('XML'),
+    ),
+    '#default_value' => variable_get('rottentomatoes_format'),
+  );
+  return system_settings_form($form);
+}
+
+/**
+ *  Bridging function to connect to Rotten Tomato API's
+ */
+function rottentomatoes_connect($params) {
+  dpm($params);
+  $rotten_tomatoes = new WB_Rottentomatoes();
+  if ($params['type'] == "by_title") {
+    if ($params['page_limit'] == "") {
+      $params['page_limit'] = '30';
+    }
+    if ($params['page'] == "") {
+      $params['page'] = '1';
+    }
+    $response = $rotten_tomatoes->search_movie_by_title($params['movie_title'], $params['page_limit'], $params['page']);
+  }
+  elseif ($params['type'] == "by_rotten_id") {
+    $response = $rotten_tomatoes->search_movie_by_rotten_id($params['movie_rotten_id']);
+  }
+  elseif ($params['type'] == "by_imdb_id") {
+    $response = $rotten_tomatoes->search_movie_by_imdb_id($params['movie_imdb_id']);
+  }
+  elseif ($params['type'] == "similar_movies_by_rotten_id") {
+    $response = $rotten_tomatoes->similar_movies_by_rotten_id($params['movie_rotten_id']);
+  }
+  elseif ($params['type'] == "upcoming_movies") {
+    if ($params['page_limit'] == "") {
+      $params['page_limit'] = '16';
+    }
+    if ($params['page'] == "") {
+      $params['page'] = '1';
+    }
+    $response = $rotten_tomatoes->upcoming_movies($params['page_limit'], $params['page'], $params['country']);
+  }
+  elseif ($params['type'] == "top_earning_movies") {
+    $response = $rotten_tomatoes->top_earning_movies($params['country']);
+  }
+  return $response;
+}
+
+/**
+ * Show display results of movies form rotten tomatoes
+ */
+function rottentomatoes_add_movies($form, $form_state) {
+  if (isset($_SESSION['search_movie_results'])) {
+
+//Get the twitter accounts info as options for checkboxes.
+    $options = prospectpicker_follow_twitter_accounts_as_options($_SESSION['search_movie_results']);
+    $options_fast_select = rottentomato_get_movies_as_fast_select_options($_SESSION['search_movie_results']);
+    $form['movies_results_as_fast_select_fieldset'] = array(
+      '#type' => 'fieldset',
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE,
+      '#attributes' => array(
+        'class' => array('fast-select-results'),
+      ),
+    );
+    foreach ($options_fast_select as $option_fast_select) {
+      $form['movies_results_as_fast_select_fieldset']['movies_fast_select'][] = array(
+        '#type' => 'markup',
+        '#markup' => $option_fast_select,
+        '#weight' => '1',
+      );
+    }
+    $form['movies_results'] = array(
+      '#type' => 'checkboxes',
+      '#options' => $options,
+      '#prefix' => '<div class ="movies-results-to-add">',
+      '#suffix' => '</div>',
+      '#attributes' => array(
+        'class' => array('movie-results-to-add'),
+      ),
+      '#weight' => '2',
+    );
+    $form['movies_to_add'] = array(
+      '#type' => 'submit',
+      '#submit' => array('rottentomatoes_add_movie'),
+      '#value' => 'click to follow',
+      '#prefix' => '<div class ="add-movie-submit">',
+      '#suffix' => '</div>',
+      '#weight' => '10',
+    );
+  }
+
+  return $form;
+}
+
+/**
+ *  function to return the options for twitters account to select.
+ *
+ */
+function prospectpicker_follow_twitter_accounts_as_options($movies) {
+  $options = array();
+  if (is_array($movies)) {
+    foreach ($movies as $movie) {
+      $key = $movie['id'];
+      $options[$key] = theme('image', array('path' => $movie['posters']['profile'])) .
+          theme('movie_info_theme', array(
+            'movie' => $movie,
+            'movie_casting' => rottentomatoes_movie_casting($movie['abridged_cast'])
+      ));
+    }
+  } return $options;
+}
+
+/**
+ * Helper function to return Casting HTML
+ */
+function rottentomatoes_movie_casting($casting) {
+  $casting_html = '';
+  foreach ($casting as $cast) {
+    $casting_html .= '<div class="cast">Name|' . $cast['characters'][0] . '</div>';
+  }
+  return $casting_html;
+}
+
+/**
+ *  function to return the options for twitters account to select.
+ *
+ */
+function rottentomato_get_movies_as_fast_select_options($movies) {
+  $options = array();
+  if (is_array($movies)) {
+    foreach ($movies as $movie) {
+      $key = $movie['id'];
+      $options[$key] = '<div rel="' . $movie['id'] . '" class="' . 'fast-select-item' . '">' .
+          theme('image', array('path' => $movie['posters']['profile'])) .
+          '</div>';
+    }
+  } return $options;
+}

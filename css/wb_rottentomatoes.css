@@ -1,0 +1,53 @@
+/*
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+*/
+/* 
+    Created on : 17 May, 2014, 1:55:30 PM
+    Author     : arpit
+*/
+
+.fast-select-item {
+    float: left;
+    padding: 0px 5px 0px 5px;
+}
+
+#edit-movies-results img {
+    float: left;
+}
+
+.movie-listing__info-block1 {
+    float: left;
+    width: 20%;
+}
+
+.movie-listing__info-block2 {
+    float: left;
+    width: 20%;
+}
+
+.movie-listing__info-block3 {
+    float: left;
+    width: 20%;
+}
+
+.movie-listing__info-block4 {
+    width: 20%;
+}
+
+.movie-casting {
+    float: left;
+}
+
+.movie-rating {
+    float: left;
+}
+
+.movies-results-to-add img {
+    padding: 5px;
+}
+
+.movie-results-to-add {
+    float: left;
+}

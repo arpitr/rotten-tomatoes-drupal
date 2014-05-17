@@ -1,0 +1,7 @@
+;$Id$
+
+name =  Rotten Tomatoes 
+description = Implements API of rotten tomatoes.
+package = Custom
+core = 7.x
+files[] = wb_rottentomatoes.module
