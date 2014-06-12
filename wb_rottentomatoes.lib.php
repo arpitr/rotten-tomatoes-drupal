@@ -204,7 +204,7 @@ class WB_Rottentomatoes {
 
   /**
    * Retrieves movies currently in theaters
-   * @params
+   * @param
    *   $country has to be fixed(http://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)
    *   String $page_limit "count of results in a page".
    *   String $page "the page number to get results of".
@@ -216,6 +216,18 @@ class WB_Rottentomatoes {
     $params['page'] = $page;
     $params['country'] = $country;
     return $this->call('lists/movies/in_theaters' . $format, $params, 'GET');
+  }
+
+  /**
+   * Get full cast for a movie.
+   * @param
+   *   String $rotten_id "the rotten if for the movie to get complete movie cast"
+   * 
+   */
+  public function get_full_movie_cast($rotten_id) {
+    $params = "";
+    $format = variable_get('rottentomatoes_format', '.json');
+    return $this->call('movies/' . $rotten_id . '/cast' . $format, $params, 'GET');
   }
 
 }

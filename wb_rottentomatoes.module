@@ -87,7 +87,7 @@ function rottentomatoes_find_movies() {
     '#type' => 'fieldset',
     '#title' => t('Search Movies'),
     '#collapsible' => TRUE,
-    '#collapsed' => FALSE,
+    '#collapsed' => TRUE,
   );
   $form['search_movies']['find_movies_by'] = array(
     '#type' => 'select',
@@ -159,9 +159,9 @@ function rottentomatoes_find_movies() {
     '#type' => 'fieldset',
     '#title' => t('Find Similar Movies By Rotten ID'),
     '#collapsible' => TRUE,
-    '#collapsed' => FALSE,
+    '#collapsed' => TRUE,
   );
-  $form['find_similar_movies']['movie_rotten_id'] = array(
+  $form['find_similar_movies']['similar_movie_by_rotten_id'] = array(
     '#type' => 'textfield',
     '#title' => t('Movie Rotten Id'),
     '#description' => t("Enter Rotten ID of Movie to Find Similar Movies"),
@@ -225,28 +225,32 @@ function rottentomatoes_find_movies() {
  *  Call Rotten Tomatoe API's.
  */
 function wb_rottentomatoes_search_movies_submit(&$form, &$form_state) {
-  dpm($form_state);
-  dpm("search");
   $params = array();
   if ($form_state['values']['find_movies_by'] == "by_title") {
     $params['type'] = "by_title";
     $params['movie_title'] = $form_state['values']['movie_title'];
     $params['page_limit'] = $form_state['values']['results_count'];
     $params['page'] = $form_state['values']['page_number'];
-    $_SESSION['search_movie_results'] = rottentomatoes_connect($params);
-    //dpm(rottentomatoes_connect($params));
+    $search_movie_results = rottentomatoes_connect($params);
+    if (isset($search_movie_results['movies']) && count($search_movie_results['movies']) > 0) {
+      $_SESSION['search_movie_results'] = $search_movie_results['movies'];
+    }
   }
   elseif ($form_state['values']['find_movies_by'] == "by_rotten_id") {
     $params['type'] = "by_rotten_id";
-    $params['movie_rotten_id'] = $form_state['values']['movie_rotten_id'];
-    $_SESSION['search_movie_results'] = rottentomatoes_connect($params);
-    //dpm(rottentomatoes_connect($params));
+    $params['movie_rotten_id'] = (string) $form_state['values']['movie_rotten_id'];
+    $search_movie_results_by_rotten_id = rottentomatoes_connect($params);
+    if (isset($search_movie_results_by_rotten_id['movies']) && count($search_movie_results_by_rotten_id['movies']) > 0) {
+      $_SESSION['search_movie_results'] = $search_movie_results_by_rotten_id['movies'];
+    }
   }
   else {
     $params['type'] = "by_imdb_id";
-    $params['movie_imdb_id'] = $form_state['values']['movie_imdb_id'];
-    $_SESSION['search_movie_results'] = rottentomatoes_connect($params);
-    //dpm(rottentomatoes_connect($params));
+    $params['movie_imdb_id'] = (string) $form_state['values']['movie_imdb_id'];
+    $search_movie_results_by_imdb_id = rottentomatoes_connect($params);
+    if (is_array($search_movie_results_by_imdb_id) && count($search_movie_results_by_imdb_id) > 0) {
+      $_SESSION['search_movie_results'] = $search_movie_results_by_imdb_id;
+    }
   }
   drupal_set_message("Form Submitted Successfully", "status");
 }
@@ -256,14 +260,13 @@ function wb_rottentomatoes_search_movies_submit(&$form, &$form_state) {
  *  Call Rotten Tomatoe API's.
  */
 function wb_rottentomatoes_find_similar_movies_submit(&$form, &$form_state) {
-  dpm("similar");
-
-  dpm($form_state);
   $params = array();
   $params['type'] = "similar_movies_by_rotten_id";
-  $params['movie_rotten_id'] = $form_state['values']['movie_rotten_id'];
-  $_SESSION['search_movie_results'] = rottentomatoes_connect($params);
-  //dpm(rottentomatoes_connect($params));
+  $params['similar_movies_by_rotten_id'] = $form_state['values']['similar_movie_by_rotten_id'];
+  $similar_movie_by_rotten_id = rottentomatoes_connect($params);
+  if (isset($similar_movie_by_rotten_id['movies']) && count($similar_movie_by_rotten_id['movies']) > 0) {
+    $_SESSION['search_movie_results'] = $similar_movie_by_rotten_id['movies'];
+  }
   drupal_set_message("Form Submitted Successfully", "status");
 }
 
@@ -272,15 +275,15 @@ function wb_rottentomatoes_find_similar_movies_submit(&$form, &$form_state) {
  *  Call Rotten Tomatoe API's.
  */
 function wb_rottentomatoes_find_upcoming_movies_submit(&$form, &$form_state) {
-  dpm("up coming");
-  dpm($form_state);
   $params = array();
   $params['type'] = "upcoming_movies";
   $params['country'] = $form_state['values']['upcoming_movie_country'];
   $params['page_limit'] = $form_state['values']['upcoming_movie_results_count'];
   $params['page'] = $form_state['values']['upcoming_movie_page_number'];
-  $_SESSION['search_movie_results'] = rottentomatoes_connect($params);
-  //dpm(rottentomatoes_connect($params));
+  $upcoming_movies = rottentomatoes_connect($params);
+  if (isset($upcoming_movies['movies']) && count($upcoming_movies['movies']) > 0) {
+    $_SESSION['search_movie_results'] = $upcoming_movies['movies'];
+  }
   drupal_set_message("Form Submitted Successfully", "status");
 }
 
@@ -289,14 +292,13 @@ function wb_rottentomatoes_find_upcoming_movies_submit(&$form, &$form_state) {
  *  Call Rotten Tomatoe API's.
  */
 function wb_rottentomatoes_find_top_earning_movies_submit(&$form, &$form_state) {
-  dpm("top earning");
-  dpm($form_state);
   $params = array();
   $params['type'] = "top_earning_movies";
   $params['country'] = $form_state['values']['top_earning_movie_country'];
-  $search_results = rottentomatoes_connect($params);
-  $_SESSION['search_movie_results'] = $search_results['movies'];
-  //dpm(rottentomatoes_connect($params));
+  $top_earning_movie = rottentomatoes_connect($params);
+  if (isset($top_earning_movie['movies']) && count($top_earning_movie['movies']) > 0) {
+    $_SESSION['search_movie_results'] = $top_earning_movie['movies'];
+  }
   drupal_set_message("Form Submitted Successfully", "status");
 }
 
@@ -331,7 +333,6 @@ function wb_rottentomatoes_configure() {
  *  Bridging function to connect to Rotten Tomato API's
  */
 function rottentomatoes_connect($params) {
-  dpm($params);
   $rotten_tomatoes = new WB_Rottentomatoes();
   if ($params['type'] == "by_title") {
     if ($params['page_limit'] == "") {
@@ -349,7 +350,7 @@ function rottentomatoes_connect($params) {
     $response = $rotten_tomatoes->search_movie_by_imdb_id($params['movie_imdb_id']);
   }
   elseif ($params['type'] == "similar_movies_by_rotten_id") {
-    $response = $rotten_tomatoes->similar_movies_by_rotten_id($params['movie_rotten_id']);
+    $response = $rotten_tomatoes->similar_movies_by_rotten_id($params['similar_movies_by_rotten_id']);
   }
   elseif ($params['type'] == "upcoming_movies") {
     if ($params['page_limit'] == "") {
@@ -373,7 +374,7 @@ function rottentomatoes_add_movies($form, $form_state) {
   if (isset($_SESSION['search_movie_results'])) {
 
 //Get the twitter accounts info as options for checkboxes.
-    $options = prospectpicker_follow_twitter_accounts_as_options($_SESSION['search_movie_results']);
+    $options = rottentomato_get_movies_options($_SESSION['search_movie_results']);
     $options_fast_select = rottentomato_get_movies_as_fast_select_options($_SESSION['search_movie_results']);
     $form['movies_results_as_fast_select_fieldset'] = array(
       '#type' => 'fieldset',
@@ -390,7 +391,15 @@ function rottentomatoes_add_movies($form, $form_state) {
         '#weight' => '1',
       );
     }
-    $form['movies_results'] = array(
+    $form['movies_results_fieldset'] = array(
+      '#type' => 'fieldset',
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE,
+      '#attributes' => array(
+        'class' => array('select-results'),
+      ),
+    );
+    $form['movies_results_fieldset']['movies_results'] = array(
       '#type' => 'checkboxes',
       '#options' => $options,
       '#prefix' => '<div class ="movies-results-to-add">',
@@ -402,8 +411,8 @@ function rottentomatoes_add_movies($form, $form_state) {
     );
     $form['movies_to_add'] = array(
       '#type' => 'submit',
-      '#submit' => array('rottentomatoes_add_movie'),
-      '#value' => 'click to follow',
+      '#submit' => array('rottentomatoes_add_movie_submit'),
+      '#value' => 'click to add selected movies',
       '#prefix' => '<div class ="add-movie-submit">',
       '#suffix' => '</div>',
       '#weight' => '10',
@@ -414,10 +423,204 @@ function rottentomatoes_add_movies($form, $form_state) {
 }
 
 /**
+ * Submit handler
+ * @param type $movies
+ * @return string
+ */
+function rottentomatoes_add_movie_submit(&$form, &$form_state) {
+  $rotten_ids = array();
+  drupal_set_message("form submittied");
+  // Get checked movies
+  foreach ($form_state['values']['movies_results'] as $movie_result) {
+    if ($movie_result != 0) {
+      $rotten_ids[] = $movie_result;
+    }
+  }
+
+  // Get selected movie information from $_SESSION
+  if (count($rotten_ids) > 0) {
+    wb_rottentomatoes_save_movie($rotten_ids);
+  }
+  else {
+    form_set_error("", t("Select atleast 1 movie you want to save"));
+  }
+}
+
+/**
+ * Helper function to save movies
+ */
+function wb_rottentomatoes_save_movie($rotten_ids) {
+  $selected_movies = array();
+  foreach ($rotten_ids as $rotten_id) {
+    foreach ($_SESSION['search_movie_results'] as $movie_item) {
+      if ($movie_item['id'] == $rotten_id) {
+        $selected_movies[] = $movie_item;
+        break;
+      }
+    }
+  }
+  if (count($selected_movies) > 0) {
+    foreach ($selected_movies as $selected_movie) {
+      wb_rottentomatoes_create_node($selected_movie, "save");
+    }
+  }
+}
+
+/**
+ * Helper function to save node.
+ */
+function wb_rottentomatoes_create_node($selected_movie) {
+  $existing_node = rotten_movie_exists($selected_movie['id']);
+  if (!is_array($existing_node) && $existing_node == 0) {
+    global $user;
+    $node = new stdClass();
+    $node->type = "rt_movie";
+    //node_object_prepare($node);
+    $node->uid = $user->uid;
+    $node_status = rt_movie_node_handler($selected_movie, "save", $node);
+    if ($node_status == TRUE) {
+      drupal_set_message(t('Node created successfully'), 'status');
+    }
+  }
+  else {
+    $existing_node_object = node_load($existing_node[0]);
+    $node_status = rt_movie_node_handler($selected_movie, "update", $existing_node_object);
+    drupal_set_message(t('Node updated successfully'), 'status');
+  }
+}
+
+/**
+ * Helper functin to check if a rt_movie node with rotten_id already exists.
+ * Returns nid for the existing node or returns 0
+ */
+function rotten_movie_exists($rotten_id) {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'node')
+      ->entityCondition('bundle', 'rt_movie')
+      ->fieldCondition('field_rt_id', 'value', $rotten_id, '=');
+  $results = $query->execute();
+  if (is_array($results) && count($results) > 0) {
+    foreach ($results as $result) {
+      $existing_nodes = current(array_keys($result));
+      return $existing_nodes;
+    }
+  }
+  else {
+    return 0;
+  }
+  dpm($result);
+}
+
+/**
+ * Helper function to map rt_movie nodes with API data.
+ * Add or update nodes.
+ */
+function rt_movie_node_handler($selected_movie, $key = "save", $node) {
+  $node->language = LANGUAGE_NONE;
+  foreach ($selected_movie as $field_key => $field_value) {
+    if ($field_key == "ratings") {
+      if (is_array($field_value) && count($field_value) > 0) {
+        if (isset($field_value['critics_rating'])) {
+          $node->field_rt_ratings_critics_rating[$node->language][0]['value'] = $field_value['critics_rating'];
+        }
+        if (isset($field_value['critics_score'])) {
+          $node->field_rt_ratings_critics_score[$node->language][0]['value'] = $field_value['critics_score'];
+        }
+        if (isset($field_value['audience_rating'])) {
+          $node->field_rt_ratings_audience_rating[$node->language][0]['value'] = $field_value['audience_rating'];
+        }
+        if (isset($field_value['audience_score'])) {
+          $node->field_rt_ratings_audience_score[$node->language][0]['value'] = $field_value['audience_score'];
+        }
+      }
+    }if ($field_key == "title") {
+      $node->$field_key = $field_value;
+    }
+    // To Do: check how to save multivalued field.
+    if ($field_key == "genres") {
+      
+    }
+
+    if ($field_key == "release_dates") {
+      $release_dates = "";
+      foreach ($field_value as $key => $value) {
+        $release_dates .= $key . '|' . $value;
+      }
+      $node->field_rt_release_dates[$node->language][0]['value'] = $release_dates;
+    }if ($field_key == "alternate_ids") {
+      $node->field_rt_imdb_id[$node->language][0]['value'] = $field_value['imdb'];
+    }if ($field_key == "abridged_cast") {
+      $abridged_casting = "";
+      foreach ($field_value as $key => $value) {
+        $abridged_casting .= $value['name'] . '|' . $value['characters'][0];
+      }
+      $node->field_rt_abridged_cast[$node->language][0]['value'] = $abridged_casting;
+    }
+    if ($field_key == "abridged_directors") {
+      foreach ($field_value as $key => $value) {
+        $abridged_directors .= $value['name'] . '|' . $value['characters'][0];
+      }
+      $node->field_rt_abridged_directors[$node->language][0]['value'] = $abridged_directors;
+    }
+    if ($field_key == "id") {
+      $node->field_rt_id[$node->language][0]['value'] = $field_value;
+    }
+    if ($field_key == "year") {
+      $node->field_rt_year[$node->language][0]['value'] = $field_value;
+    }
+    if ($field_key == "synopsis") {
+      $node->field_rt_synopsis[$node->language][0]['value'] = $field_value;
+    }
+    if ($field_key == "mpaa_rating") {
+      $node->field_rt_mpaa_rating[$node->language][0]['value'] = $field_value;
+    }
+    if ($field_key == "critics_consensus") {
+      $node->field_rt_critics_consensus[$node->language][0]['value'] = $field_value;
+    }
+  }
+  if ($key == "update" && isset($selected_movie['id'])) {
+    $full_cast = get_full_cast($selected_movie['id']);
+    $node->field_rt_full_cast[$node->language][0]['value'] = $full_cast;
+  }
+  // Prepare node for a submit
+  $node = node_submit($node);
+  // Save node
+  try {
+    node_save($node);
+    $node_save = TRUE;
+  }
+  catch (Exception $e) {
+    watchdog('rotten_tomatoes', $e, array(), WATCHDOG_ERROR);
+    $node_save = FALSE;
+  }
+  return $node_save;
+}
+
+/**
+ * Helper function to get full cast.
+ * To Do: Use this function while updating single rt_movie node.
+ * @param
+ *   String $rotten_id "the rotten id to get full cast for."
+ */
+function get_full_cast($rotten_id) {
+  $rotten_tomatoes = new WB_Rottentomatoes($rotten_id);
+  $casting_response = $rotten_tomatoes->get_full_movie_cast($rotten_id);
+  $full_cast = "";
+  if (is_array($casting_response) && isset($casting_response['cast'])) {
+    if (is_array($casting_response['cast']) && count($casting_response['cast'])) {
+      foreach ($casting_response['cast'] as $cast_key => $cast_value) {
+        $full_cast .= $cast_value['name'] . '|' . $cast_value['characters'][0];
+      }
+    }
+  }
+  return $full_cast;
+}
+
+/**
  *  function to return the options for twitters account to select.
  *
  */
-function prospectpicker_follow_twitter_accounts_as_options($movies) {
+function rottentomato_get_movies_options($movies) {
   $options = array();
   if (is_array($movies)) {
     foreach ($movies as $movie) {
@@ -437,7 +640,8 @@ function prospectpicker_follow_twitter_accounts_as_options($movies) {
 function rottentomatoes_movie_casting($casting) {
   $casting_html = '';
   foreach ($casting as $cast) {
-    $casting_html .= '<div class="cast">Name|' . $cast['characters'][0] . '</div>';
+    $character_name = (isset($cast['characters'][0])) ? $cast['characters'][0] : "NA";
+    $casting_html .= '<div class="cast">' . $cast['name'] . '|' . $character_name . '</div>';
   }
   return $casting_html;
 }
